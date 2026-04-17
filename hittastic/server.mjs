@@ -1,8 +1,10 @@
 import express from 'express';
+import bcrypt from 'bcrypt';
 import Database from 'better-sqlite3';
 import expressSession from 'express-session';
 import betterSqlite3Session from 'express-session-better-sqlite3';
 import db from './db.mjs';
+import xss from 'xss';
 
 const app = express();
 
@@ -36,28 +38,39 @@ app.use(express.urlencoded({extended: false}));
 app.set('view engine' , 'ejs');
 
 // TODO signup with bcrypt
-app.post('/signup', (req, res) => {
-    res.render('main', { msg: "Not implemented yet"} );
+app.post('/signup', async (req, res) => {
+    try {
+        const hashedPass = await bcrypt.hash(req.body.password, 10);
+        const stmt = db.prepare('INSERT INTO ht_users (username, password, balance) VALUES (?, ?, 0)');
+        stmt.run(req.body.username, hashedPass);
+        res.render('main', { msg: "Signup successful!" });
+    } catch(e) {
+        res.render('main', { msg: xss(e.message) });
+    }
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     let msg = "";
     try {
-        // TODO 1. replace with secure version using placeholders
-        const stmt = db.prepare(`SELECT * FROM ht_users WHERE password='${req.body.password}' AND username='${req.body.username}'`);
-        const results = stmt.all();
+        const stmt = db.prepare('SELECT * FROM ht_users WHERE username=?');
+        const results = stmt.all(req.body.username);
 
         if(results.length > 0) {
-            req.session.username = results[0].username;
-            res.redirect('/');
-            return;
+            const match = await bcrypt.compare(req.body.password, results[0].password);
+            if(match) {
+                req.session.username = results[0].username;
+                res.redirect('/');
+                return;
+            } else {
+                msg = "Invalid login";
+            }
         } else {
             msg = "Invalid login";
         }
     } catch(e) {
-        msg = `Internal error: ${e}`;
+        msg = xss(`Internal error: ${e}`);
     }
-    res.render('main', { msg: msg, username: req.session.username } );
+    res.render('main', { msg: msg, username: req.session.username });
 });
 
 
@@ -81,16 +94,30 @@ app.use('/buy', (req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-    res.render('main', { msg: req.userStatus, username: req.session.username } );
+    res.render('main', { msg: xss(req.userStatus), username: xss(req.session.username) });
 });
 
-app.get(['/search','/artist/:artist'], (req, res) => {
+app.get(['/search', '/artist/:artist'], (req, res) => {
     try {
         const stmt = db.prepare('SELECT * FROM wadsongs WHERE artist=?');
         const results = stmt.all(req.params.artist || req.query.artist);
-        res.render('main', { results: results, msg: req.userStatus, username: req.session.username } );
+
+        const safeResults = results.map(row => ({
+            ...row,
+            artist: xss(row.artist),
+            title: xss(row.title)
+        }));
+
+        res.render('main', {
+            results: safeResults,
+            msg: xss(req.userStatus),
+            username: xss(req.session.username)
+        });
     } catch(e) {
-        res.render('main', {  msg: e.message, username: req.session.username } );
+        res.render('main', {
+            msg: xss(e.message),
+            username: xss(req.session.username)
+        });
     }
 });
 
@@ -104,7 +131,7 @@ app.post('/buy', (req, res) => {
             const stmt3 = db.prepare('UPDATE ht_users SET balance=balance-? WHERE username=?');
             stmt3.run(result.price, req.session.username);
         }
-        res.render('main', { msg : `${req.userStatus}<br />You are buying the song with ID ${req.body.id}`, username: req.session.username});
+        res.render('main', { msg: `${xss(req.userStatus)}<br />You are buying the song with ID ${xss(req.body.id)}`, username: xss(req.session.username) });
     } catch(e) {    
         res.render('main', {  msg: e.message, username: req.session.username } );
     } 
