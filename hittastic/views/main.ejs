@@ -13,14 +13,6 @@
 <p>Search and shop for your favourite top 40 hits on HitTastic! Whether it's pop, rock, rap or pure liquid cheese you're into, you can be sure to find it on HitTastic! With the full range of top 40 hits since 1952 on our database, you can guarantee you'll fund what you're looking for in stock. Plus, with our Year Search find out exactly what was in the chart in any year. </p>
 </div>
 
-<h2>Sign up</h2>
-<form method="post" action="/signup">
-<label for="username">Username</label><br />
-<input name="username" id="username" /><br />
-<label for="password">Password</label><br />
-<input name="password" id="password" type="password" /><br />
-<input type="submit" value="Go!" />
-</form>
 
 <div>
 <%
@@ -31,6 +23,14 @@ if(locals.username) {
     <%
 } else {
 %>
+<h2>Sign up</h2>
+<form method="post" action="/signup">
+<label for="username">Username</label><br />
+<input name="username" id="username" /><br />
+<label for="password">Password</label><br />
+<input name="password" id="password" type="password" /><br />
+<input type="submit" value="Go!" />
+</form>
 <h2>Login</h2>
 <form method="post" action="/login">
 <label for="username">Username</label><br />
